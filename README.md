@@ -1,6 +1,6 @@
 <h1 align="center">Hi 👋, I'm Pritesh</h1>
 <h3 align="center">A passionate frontend developer from India</h3>
-<h4 align="left">Know me more on <a href='https://psportfolio.netlify.app/'>Pritesh portfolio</a></h4>
+<h4 align="left">Know me more on Pritesh portfolio</h4>
 <p align="left"> <img src="https://komarev.com/ghpvc/?username=pritesh-git&label=Profile%20views&color=0e75b6&style=flat" alt="pritesh-git" /> </p>
 
 <p align="left"> <a href="https://github.com/ryo-ma/github-profile-trophy"><img src="https://github-profile-trophy.vercel.app/?username=pritesh-git" alt="pritesh-git" /></a> </p>
