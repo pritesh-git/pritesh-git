@@ -14,32 +14,51 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          echo "Fetching all repositories for pritesh-git..."
+          echo "Testing PAT token..."
+          gh auth status
+          echo ""
+          echo "Fetching all repositories..."
           
-          # Get all repositories using GitHub CLI with PAT token
+          # Get all repositories
           REPOS=$(gh repo list --json nameWithOwner,isPrivate --limit 1000 -q '.[].nameWithOwner')
           
           echo "Found repositories:"
           echo "$REPOS"
           echo ""
           
+          # Count of private/updated repos
+          PRIVATE_COUNT=0
+          SKIPPED_COUNT=0
+          FAILED_COUNT=0
+          
           # Process each repository
-          for repo in $REPOS; do
+          while IFS= read -r repo; do
+            if [[ -z "$repo" ]]; then
+              continue
+            fi
+            
             if [[ "$repo" == *"pritesh-git/pritesh-git"* ]]; then
               echo "⏭️  Skipping $repo (excluded)"
+              ((SKIPPED_COUNT++))
               continue
             fi
             
             echo "Making $repo private..."
             
             # Update repository to private
-            if gh repo edit "$repo" --visibility private 2>&1; then
+            if gh repo edit "$repo" --visibility private; then
               echo "✅ $repo is now private"
+              ((PRIVATE_COUNT++))
             else
               echo "❌ Failed to make $repo private"
+              ((FAILED_COUNT++))
             fi
-            
             echo ""
-          done
+          done <<< "$REPOS"
           
-          echo "✨ Workflow completed!"
+          echo "=========================================="
+          echo "Summary:"
+          echo "✅ Made private: $PRIVATE_COUNT"
+          echo "⏭️  Skipped: $SKIPPED_COUNT"
+          echo "❌ Failed: $FAILED_COUNT"
+          echo "=========================================="
