@@ -1,0 +1,28 @@
+name: Make All Repos Private (Except pritesh-git)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  make-private:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Make all repos private (except pritesh-git)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get all repositories for the authenticated user
+          repos=$(gh repo list --json nameWithOwner,isPrivate --limit 1000)
+          
+          # Extract repo names and filter out pritesh-git and already private repos
+          echo "$repos" | jq -r '.[] | select(.nameWithOwner | contains("pritesh-git/pritesh-git") | not) | select(.isPrivate == false) | .nameWithOwner' | while read repo; do
+            echo "Making $repo private..."
+            gh repo edit "$repo" --visibility private
+            if [ $? -eq 0 ]; then
+              echo "✓ Successfully made $repo private"
+            else
+              echo "✗ Failed to make $repo private"
+            fi
+          done
+          
+          echo "Done! All public repos (except pritesh-git) are now private."
