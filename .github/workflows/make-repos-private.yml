@@ -16,8 +16,8 @@ jobs:
         run: |
           echo "Fetching all repositories..."
           
-          # Get all repositories using pagination
-          gh repo list --json nameWithOwner,isPrivate --limit 1000 -u pritesh-git > repos.json
+          # Get all repositories using pagination (remove -u flag)
+          gh repo list --json nameWithOwner,isPrivate --limit 1000 > repos.json
           
           echo "Total repositories found:"
           jq length repos.json
