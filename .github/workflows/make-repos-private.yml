@@ -11,51 +11,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Make all repos private
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          # Set up authentication
-          export GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
-          
           echo "Fetching all repositories for pritesh-git..."
           
-          # Get all repositories using curl and GitHub API
-          RESPONSE=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/user/repos?per_page=100&affiliation=owner")
+          # Get all repositories using GitHub CLI with PAT token
+          REPOS=$(gh repo list --json nameWithOwner,isPrivate --limit 1000 -q '.[].nameWithOwner')
           
-          echo "API Response:"
-          echo "$RESPONSE" | jq '.'
-          echo ""
-          
-          # Extract repository names and filter
-          REPOS=$(echo "$RESPONSE" | jq -r '.[].name')
-          
-          echo "Found repositories: $REPOS"
+          echo "Found repositories:"
+          echo "$REPOS"
           echo ""
           
           # Process each repository
           for repo in $REPOS; do
-            if [ "$repo" = "pritesh-git" ]; then
+            if [[ "$repo" == *"pritesh-git/pritesh-git"* ]]; then
               echo "⏭️  Skipping $repo (excluded)"
               continue
             fi
             
-            echo "Processing $repo..."
+            echo "Making $repo private..."
             
             # Update repository to private
-            UPDATE_RESPONSE=$(curl -s -X PATCH \
-              -H "Authorization: token $GITHUB_TOKEN" \
-              -H "Accept: application/vnd.github.v3+json" \
-              -d '{"private":true}' \
-              "https://api.github.com/repos/pritesh-git/$repo")
-            
-            # Check if update was successful
-            PRIVATE=$(echo "$UPDATE_RESPONSE" | jq -r '.private')
-            
-            if [ "$PRIVATE" = "true" ]; then
+            if gh repo edit "$repo" --visibility private 2>&1; then
               echo "✅ $repo is now private"
             else
               echo "❌ Failed to make $repo private"
-              echo "Response: $UPDATE_RESPONSE" | jq '.'
             fi
             
             echo ""
