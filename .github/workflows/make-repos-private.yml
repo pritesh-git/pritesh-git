@@ -1,6 +1,9 @@
 name: Make All Repos Private (Except pritesh-git)
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -8,25 +11,54 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Make all repos private
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Get all repositories
-          REPOS=$(gh api user/repos --paginate -q '.[].name')
+          # Set up authentication
+          export GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
           
-          echo "Found repositories:"
-          echo "$REPOS"
+          echo "Fetching all repositories for pritesh-git..."
+          
+          # Get all repositories using curl and GitHub API
+          RESPONSE=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/user/repos?per_page=100&affiliation=owner")
+          
+          echo "API Response:"
+          echo "$RESPONSE" | jq '.'
           echo ""
           
+          # Extract repository names and filter
+          REPOS=$(echo "$RESPONSE" | jq -r '.[].name')
+          
+          echo "Found repositories: $REPOS"
+          echo ""
+          
+          # Process each repository
           for repo in $REPOS; do
             if [ "$repo" = "pritesh-git" ]; then
-              echo "Skipping $repo (excluded)"
+              echo "⏭️  Skipping $repo (excluded)"
               continue
             fi
             
-            echo "Making $repo private..."
-            gh repo edit pritesh-git/"$repo" --visibility private && echo "✓ $repo is now private" || echo "✗ Failed to make $repo private"
+            echo "Processing $repo..."
+            
+            # Update repository to private
+            UPDATE_RESPONSE=$(curl -s -X PATCH \
+              -H "Authorization: token $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github.v3+json" \
+              -d '{"private":true}' \
+              "https://api.github.com/repos/pritesh-git/$repo")
+            
+            # Check if update was successful
+            PRIVATE=$(echo "$UPDATE_RESPONSE" | jq -r '.private')
+            
+            if [ "$PRIVATE" = "true" ]; then
+              echo "✅ $repo is now private"
+            else
+              echo "❌ Failed to make $repo private"
+              echo "Response: $UPDATE_RESPONSE" | jq '.'
+            fi
+            
+            echo ""
           done
           
-          echo ""
-          echo "All done!"
+          echo "✨ Workflow completed!"
