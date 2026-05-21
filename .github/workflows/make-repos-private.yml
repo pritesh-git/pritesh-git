@@ -1,9 +1,6 @@
-name: Make All Repos Private (Except pritesh-git)
+name: Make All Repos Private
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 jobs:
@@ -14,48 +11,48 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
-          echo "Testing PAT token..."
-          gh auth status
-          echo ""
-          echo "Fetching all repositories..."
-          
-          # Get all repositories
-          REPOS=$(gh repo list --json nameWithOwner,isPrivate --limit 1000 -q '.[].nameWithOwner')
-          
-          echo "Found repositories:"
-          echo "$REPOS"
-          echo ""
-          
-          # Count of private/updated repos
+          if [ -z "$GH_TOKEN" ]; then
+            echo "Error: secret PAT_TOKEN is not set" >&2
+            exit 1
+          fi
+
+          echo "Fetching repositories..."
+          REPOS=$(curl -s -H "Authorization: token $GH_TOKEN" "https://api.github.com/user/repos?per_page=100" | jq -r '.[].full_name')
+
+          echo "Found:\n$REPOS"
+
           PRIVATE_COUNT=0
           SKIPPED_COUNT=0
           FAILED_COUNT=0
-          
-          # Process each repository
-          while IFS= read -r repo; do
-            if [[ -z "$repo" ]]; then
+
+          for repo in $REPOS; do
+            if [ -z "$repo" ]; then
               continue
             fi
-            
-            if [[ "$repo" == *"pritesh-git/pritesh-git"* ]]; then
-              echo "⏭️  Skipping $repo (excluded)"
-              ((SKIPPED_COUNT++))
+
+            if [ "$repo" = "pritesh-git/pritesh-git" ]; then
+              echo "Skipping $repo (excluded)"
+              SKIPPED_COUNT=$((SKIPPED_COUNT+1))
               continue
             fi
-            
+
             echo "Making $repo private..."
-            
-            # Update repository to private
-            if gh repo edit "$repo" --visibility private; then
+            RESP=$(curl -s -X PATCH \
+              -H "Authorization: token $GH_TOKEN" \
+              -H "Accept: application/vnd.github.v3+json" \
+              -d '{"private":true}' \
+              "https://api.github.com/repos/$repo")
+
+            if echo "$RESP" | jq -e '.private == true' >/dev/null 2>&1; then
               echo "✅ $repo is now private"
-              ((PRIVATE_COUNT++))
+              PRIVATE_COUNT=$((PRIVATE_COUNT+1))
             else
               echo "❌ Failed to make $repo private"
-              ((FAILED_COUNT++))
+              echo "$RESP"
+              FAILED_COUNT=$((FAILED_COUNT+1))
             fi
-            echo ""
-          done <<< "$REPOS"
-          
+          done
+
           echo "=========================================="
           echo "Summary:"
           echo "✅ Made private: $PRIVATE_COUNT"
