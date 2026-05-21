@@ -7,38 +7,26 @@ jobs:
   make-private:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Make all repos private (except pritesh-git)
+      - name: Make all repos private
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Fetching all repositories..."
+          # Get all repositories
+          REPOS=$(gh api user/repos --paginate -q '.[].name')
           
-          # Get all repositories using pagination (remove -u flag)
-          gh repo list --json nameWithOwner,isPrivate --limit 1000 > repos.json
-          
-          echo "Total repositories found:"
-          jq length repos.json
-          
-          echo ""
-          echo "Repositories to process:"
-          jq -r '.[] | "\(.nameWithOwner) - Private: \(.isPrivate)"' repos.json
-          
-          echo ""
-          echo "Starting to make repos private..."
+          echo "Found repositories:"
+          echo "$REPOS"
           echo ""
           
-          # Extract and process repos
-          jq -r '.[] | select(.nameWithOwner | endswith("pritesh-git/pritesh-git") | not) | select(.isPrivate == false) | .nameWithOwner' repos.json | while read repo; do
-            echo "Making $repo private..."
-            if gh repo edit "$repo" --visibility private 2>&1; then
-              echo "✓ Successfully made $repo private"
-            else
-              echo "✗ Failed to make $repo private"
+          for repo in $REPOS; do
+            if [ "$repo" = "pritesh-git" ]; then
+              echo "Skipping $repo (excluded)"
+              continue
             fi
-            echo ""
+            
+            echo "Making $repo private..."
+            gh repo edit pritesh-git/"$repo" --visibility private && echo "✓ $repo is now private" || echo "✗ Failed to make $repo private"
           done
           
-          echo "Workflow completed!"
+          echo ""
+          echo "All done!"
